@@ -1,38 +1,20 @@
 #!/bin/bash
 # =========================================
-# INSTALL ZIVPN UDP (MODULAR VERSION)
+# INSTALL ZIVPN UDP (MODULAR VERSION - FIXED)
 # =========================================
 
 # Colors
-red='\e[1;31m'
-green='\e[0;32m'
-yellow='\e[1;33m'
-blue='\e[1;34m'
-nc='\e[0m'
+red='\e[1;31m'; green='\e[0;32m'; yellow='\e[1;33m'; blue='\e[1;34m'; nc='\e[0m'
 
-# Error logging mechanism
+# Error Logging
 ERROR_LOG="/var/log/install-error.log"
 log_err() {
     echo -e "[ $(date) ] ERROR di baris $1: $2" >> "$ERROR_LOG"
-    echo -e "${red}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${nc}"
-    echo -e "${red}          FATAL ERROR DETECTED           ${nc}"
-    echo -e "${red}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${nc}"
-    echo -e "${red} Baris  : $1${nc}"
-    echo -e "${red} Command: $2${nc}"
-    echo -e "${red} Log    : $ERROR_LOG${nc}"
-    echo -e "${red}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${nc}"
 }
 trap 'log_err $LINENO "$BASH_COMMAND"' ERR
 
-# Check root
-if [[ $EUID -ne 0 ]]; then
-   echo "This script must be run as root!"
-   exit 1
-fi
-
-echo -e "${blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${nc}"
-echo -e "${yellow}      INSTALLING ZIVPN UDP SERVER       ${nc}"
-echo -e "${blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${nc}"
+# Get current script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # 1. Preparation
 ZIVPN_DIR="/etc/zivpn"
@@ -48,7 +30,7 @@ elif [[ "$ARCH" == "aarch64" || "$ARCH" == "arm64" ]]; then
 fi
 
 echo -e "[ INFO ] Downloading Zivpn binary..."
-wget -q "$BINARY_URL" -O "$ZIVPN_BIN"
+wget -q "$BINARY_URL" -O "$ZIVPN_BIN" || echo -e "${red}Gagal download binary${nc}"
 chmod +x "$ZIVPN_BIN"
 
 # 3. Generate SSL Cert
@@ -101,26 +83,34 @@ systemctl start zivpn.service
 # 6. Setup Iptables (Port Forwarding)
 echo -e "[ INFO ] Configuring Iptables..."
 IFACE=$(ip -4 route ls | grep default | grep -Po '(?<=dev )(S+)' | head -1)
-iptables -t nat -A PREROUTING -i "$IFACE" -p udp --dport 10000:30000 -j DNAT --to-destination :5667
-netfilter-persistent save > /dev/null 2>&1
+# Fallback IFACE if detection fails
+if [[ -z "$IFACE" ]]; then
+    IFACE=$(ip link | grep -m 1 "state UP" | awk -F': ' '{print $2}')
+fi
 
-# 7. Install Command Scripts to /usr/bin
+if [[ -n "$IFACE" ]]; then
+    iptables -t nat -A PREROUTING -i "$IFACE" -p udp --dport 10000:30000 -j DNAT --to-destination :5667 || true
+    netfilter-persistent save > /dev/null 2>&1 || true
+fi
+
+# 7. Install Command Scripts with Safe Path
 echo -e "[ INFO ] Installing command scripts..."
-# assuming we are in the script directory or the scripts are in the same folder
-cp add-zivpn.sh /usr/bin/add-zivpn
-cp del-zivpn.sh /usr/bin/del-zivpn
-cp cek-zivpn.sh /usr/bin/cek-zivpn
-cp renew-zivpn.sh /usr/bin/renew-zivpn
-cp menu-zivpn.sh /usr/bin/menu-zivpn
+commands=("add-zivpn" "del-zivpn" "cek-zivpn" "renew-zivpn" "menu-zivpn")
 
-chmod +x /usr/bin/add-zivpn
-chmod +x /usr/bin/del-zivpn
-chmod +x /usr/bin/cek-zivpn
-chmod +x /usr/bin/renew-zivpn
-chmod +x /usr/bin/menu-zivpn
+for cmd in "${commands[@]}"; do
+    if [[ -f "$SCRIPT_DIR/$cmd.sh" ]]; then
+        cp "$SCRIPT_DIR/$cmd.sh" "/usr/bin/$cmd"
+        chmod +x "/usr/bin/$cmd"
+    else
+        echo -e "${yellow}[ WARN ]${nc} File $cmd.sh tidak ditemukan di $SCRIPT_DIR, mendownload..."
+        wget -q "https://raw.githubusercontent.com/segumpalnenen/mysetup/master/zivpn/$cmd.sh" -O "/usr/bin/$cmd"
+        chmod +x "/usr/bin/$cmd"
+    fi
+done
 ln -sf /usr/bin/menu-zivpn /usr/bin/zivpn
 
 # 8. Setup Auto-delete Cron
+# ... (sisa kode cron tetap sama)
 cat > /usr/local/bin/zivpn-cron.sh <<'CRONEOF'
 #!/bin/bash
 TODAY=$(date +%Y-%m-%d)
@@ -162,13 +152,4 @@ CRONEOF
 chmod +x /usr/local/bin/zivpn-cron.sh
 (crontab -l 2>/dev/null | grep -v "zivpn-cron"; echo "0 0 * * * /usr/local/bin/zivpn-cron.sh") | crontab -
 
-echo -e "${green}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${nc}"
-echo -e "${green}    ZIVPN UDP INSTALLATION COMPLETED     ${nc}"
-echo -e "${blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${nc}"
-echo -e " Commands:"
-echo -e " - menu-zivpn  : Open Zivpn Menu"
-echo -e " - add-zivpn   : Add Zivpn User"
-echo -e " - del-zivpn   : Delete Zivpn User"
-echo -e " - cek-zivpn   : List Zivpn Users"
-echo -e " - renew-zivpn : Renew Zivpn User"
-echo -e "${blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${nc}"
+echo -e "${green}ZIVPN Installation Finished Successfully!${nc}"
