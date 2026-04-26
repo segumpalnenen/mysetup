@@ -62,13 +62,14 @@ echo "$cf_token" > /etc/cf_token
 chmod 600 /etc/cf_token
 
 # Save domains
-for p in domain domain_vmess domain_vless domain_trojan domain_ssh domain_slowdns domain_zivpn; do
+for p in domain domain_vmess domain_vless domain_trojan domain_ssh domain_slowdns domain_zivpn domain_ssh_ws; do
     echo "${kode}.${basedom}" > "/usr/local/etc/xray/$p"
 done
 # override specific if needed
 echo "vm${kode}.${basedom}" > /usr/local/etc/xray/domain_vmess
 echo "vl${kode}.${basedom}" > /usr/local/etc/xray/domain_vless
-echo "ns${kode}.${basedom}" > /usr/local/etc/xray/domain_slowdns
+echo "ws-${kode}.${basedom}" > /usr/local/etc/xray/domain_ssh_ws
+echo "ns-${kode}.${basedom}" > /usr/local/etc/xray/domain_slowdns
 
 # --- DNS AUTOMATION ---
 echo -e "${blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${nc}"

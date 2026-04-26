@@ -121,7 +121,9 @@ printf "[Service]\nExecStartPost=/bin/sleep 0.1\n" > /etc/systemd/system/nginx.s
 # Restart Nginx
 systemctl daemon-reload
 systemctl enable nginx
-systemctl start nginx
+systemctl stop nginx 2>/dev/null || true
+rm -f /etc/nginx/sites-enabled/default
+systemctl start nginx || true
 
 # Setup web root directory
 wget -q -O /usr/share/nginx/html/index.html "https://raw.githubusercontent.com/segumpalnenen/mysetup/master/ssh/index"

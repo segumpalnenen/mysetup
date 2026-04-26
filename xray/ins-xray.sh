@@ -603,7 +603,9 @@ EOF
 # Reload systemd and start Xray
 systemctl daemon-reload
 systemctl enable nginx
-systemctl start nginx
+systemctl stop nginx 2>/dev/null || true
+rm -f /etc/nginx/sites-enabled/default
+systemctl start nginx || true
 
 cd /usr/bin
 # vless

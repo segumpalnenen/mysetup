@@ -1,6 +1,6 @@
 #!/bin/bash
 # =========================================
-# AUTO CREATE DNS RECORDS CLOUDFLARE
+# AUTO CREATE DNS RECORDS CLOUDFLARE (NS & WS FIXED)
 # =========================================
 set -euo pipefail
 
@@ -16,65 +16,59 @@ BASE_DOMAIN=$1
 SERVER_CODE=$2
 CF_TOKEN=${3:-$SAVED_TOKEN}
 
-if [[ -z "$BASE_DOMAIN" || -z "$SERVER_CODE" || -z "$CF_TOKEN" ]]; then
-    echo -e "${red}Error: Missing parameters!${nc}"
-    echo "Usage: ./cf.sh [base_domain] [server_code] [token]"
-    exit 1
-fi
-
 log() { echo -e "[${blue}INFO${nc}] $*"; }
 
 # Get Zone ID
-log "Fetching Zone ID for $BASE_DOMAIN..."
 ZONE_ID=$(curl -sLX GET "https://api.cloudflare.com/client/v4/zones?name=$BASE_DOMAIN&status=active" \
      -H "Authorization: Bearer $CF_TOKEN" \
      -H "Content-Type: application/json" | jq -r '.result[0].id')
 
 if [[ "$ZONE_ID" == "null" || -z "$ZONE_ID" ]]; then
-    echo -e "${red}Error: Zone ID not found for domain $BASE_DOMAIN${nc}"
-    exit 1
+    echo -e "${red}Error: Zone ID not found!${nc}"; exit 1
 fi
 
 create_or_update() {
     local NAME=$1
     local CONTENT=$2
+    local TYPE=${3:-A}
     local RECORD_ID
     
-    RECORD_ID=$(curl -sLX GET "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/dns_records?name=${NAME}" \
+    RECORD_ID=$(curl -sLX GET "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/dns_records?name=${NAME}&type=${TYPE}" \
         -H "Authorization: Bearer ${CF_TOKEN}" \
         -H "Content-Type: application/json" | jq -r '.result[0].id // empty')
 
+    local DATA="{\"type\":\"${TYPE}\",\"name\":\"${NAME}\",\"content\":\"${CONTENT}\",\"ttl\":120,\"proxied\":false}"
+
     if [[ -z "$RECORD_ID" ]]; then
-        # Create
         curl -sLX POST "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/dns_records" \
             -H "Authorization: Bearer ${CF_TOKEN}" \
-            -H "Content-Type: application/json" \
-            --data "{\"type\":\"A\",\"name\":\"${NAME}\",\"content\":\"${CONTENT}\",\"ttl\":120,\"proxied\":false}" > /dev/null
-        log "Created A record: ${green}$NAME${nc} -> $CONTENT"
+            -H "Content-Type: application/json" --data "$DATA" > /dev/null
+        log "Created $TYPE record: ${green}$NAME${nc}"
     else
-        # Update
         curl -sLX PUT "https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/dns_records/${RECORD_ID}" \
             -H "Authorization: Bearer ${CF_TOKEN}" \
-            -H "Content-Type: application/json" \
-            --data "{\"type\":\"A\",\"name\":\"${NAME}\",\"content\":\"${CONTENT}\",\"ttl\":120,\"proxied\":false}" > /dev/null
-        log "Updated A record: ${green}$NAME${nc} -> $CONTENT"
+            -H "Content-Type: application/json" --data "$DATA" > /dev/null
+        log "Updated $TYPE record: ${green}$NAME${nc}"
     fi
 }
 
-log "Starting DNS record automation for IP: $IP"
+# --- DNS MAPPING ---
+MAIN_HOST="${SERVER_CODE}.${BASE_DOMAIN}"
+WS_HOST="ws-${SERVER_CODE}.${BASE_DOMAIN}"
+NS_HOST="ns-${SERVER_CODE}.${BASE_DOMAIN}"
 
-# List of subdomains to create
-# vmsg1.domain, vlsg1.domain, trsg1.domain, sg1.domain, wssg1.domain, ovpnsg1.domain, nssg1.domain, zisg1.domain
-create_or_update "vm${SERVER_CODE}.${BASE_DOMAIN}" "$IP"
-create_or_update "vl${SERVER_CODE}.${BASE_DOMAIN}" "$IP"
-create_or_update "tr${SERVER_CODE}.${BASE_DOMAIN}" "$IP"
-create_or_update "${SERVER_CODE}.${BASE_DOMAIN}" "$IP"
-create_or_update "ws${SERVER_CODE}.${BASE_DOMAIN}" "$IP"
-create_or_update "ovpn${SERVER_CODE}.${BASE_DOMAIN}" "$IP"
-create_or_update "ns${SERVER_CODE}.${BASE_DOMAIN}" "$IP"
-create_or_update "zi${SERVER_CODE}.${BASE_DOMAIN}" "$IP"
-create_or_update "ss${SERVER_CODE}.${BASE_DOMAIN}" "$IP"
-create_or_update "ssws${SERVER_CODE}.${BASE_DOMAIN}" "$IP"
-create_or_update "ssgr${SERVER_CODE}.${BASE_DOMAIN}" "$IP"
+log "Starting DNS automation for IP: $IP"
 
-log "${green}All DNS records processed successfully!${nc}"
+# 1. Main A Records
+create_or_update "$MAIN_HOST" "$IP" "A"
+create_or_update "$WS_HOST" "$IP" "A"   # New dedicated WS Subdomain
+create_or_update "vm${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"
+create_or_update "vl${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"
+create_or_update "tr${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"
+create_or_update "zi${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"
+
+# 2. SlowDNS NS Record (Pointing to Main Host)
+# SlowDNS butuh NS Record yang mengarah ke sebuah A Record (Main Host)
+create_or_update "$NS_HOST" "$MAIN_HOST" "NS"
+
+log "${green}All DNS records (including NS & SSH-WS) processed!${nc}"

@@ -15,8 +15,9 @@ nc='\e[0m'
 clear
 MYIP=$(wget -qO- ipv4.icanhazip.com || curl -s ifconfig.me)
 domain=$(cat /usr/local/etc/xray/domain_ssh 2>/dev/null || cat /usr/local/etc/xray/domain 2>/dev/null)
-#sldomain=$(cat /root/nsdomain)
-#slkey=$(cat /etc/slowdns/server.pub)
+domain_ws=$(cat /usr/local/etc/xray/domain_ssh_ws 2>/dev/null || echo "ws-$domain")
+sldomain=$(cat /root/nsdomain 2>/dev/null || cat /usr/local/etc/xray/domain_slowdns 2>/dev/null)
+slkey=$(cat /etc/slowdns/server.pub 2>/dev/null)
 
 openssh=`cat /root/log-install.txt | grep -w "OpenSSH" | cut -f2 -d: | awk '{print $1,$2}'`
 db=`cat /root/log-install.txt | grep -w "Dropbear" | cut -f2 -d: | awk '{print $1,$2}'`
@@ -54,10 +55,10 @@ echo -e "SSH WS      : $sshws" | tee -a /var/log/create-ssh.log
 echo -e "SSH SSL WS  : $sshwsssl" | tee -a /var/log/create-ssh.log
 echo -e "SSH/SSL     : $ssl" | tee -a /var/log/create-ssh.log
 echo -e "UDPGW       : 7100-7900" | tee -a /var/log/create-ssh.log
-#echo -e "Port NS     : ALL Port" | tee -a /var/log/create-ssh.log
-#echo -e "Nameserver  : $sldomain" | tee -a /var/log/create-ssh.log
-#echo -e "Pubkey      : $slkey" | tee -a /var/log/create-ssh.log
-#echo -e "UDP Custom  : 1-65350" | tee -a /var/log/create-ssh.log
+echo -e "Port NS     : 53, 5300" | tee -a /var/log/create-ssh.log
+echo -e "Nameserver  : $sldomain" | tee -a /var/log/create-ssh.log
+echo -e "Pubkey      : $slkey" | tee -a /var/log/create-ssh.log
+echo -e "UDP Custom  : 1-65350" | tee -a /var/log/create-ssh.log
 echo -e "${red}=========================================${nc}" | tee -a /var/log/create-ssh.log
 echo -e "${blue}            OpenVPN Account            ${nc}" | tee -a /var/log/create-ssh.log
 echo -e "${red}=========================================${nc}" | tee -a /var/log/create-ssh.log
@@ -72,12 +73,12 @@ echo -e "openvpn zip  : https://$domain/openvpn/ovpn.zip" | tee -a /var/log/crea
 echo -e "${red}=========================================${nc}" | tee -a /var/log/create-ssh.log
 echo -e "Payload WSS" | tee -a /var/log/create-ssh.log
 echo -e "
-GET wss://bug.com HTTP/1.1[crlf] Host: ${domain}[crlf] Upgrade: websocket[crlf] Connection: Upgrade[crlf]
+GET wss://bug.com HTTP/1.1[crlf] Host: ${domain_ws}[crlf] Upgrade: websocket[crlf] Connection: Upgrade[crlf]
 " | tee -a /var/log/create-ssh.log
 echo -e "${red}=========================================${nc}" | tee -a /var/log/create-ssh.log
 echo -e "Payload WS" | tee -a /var/log/create-ssh.log
 echo -e "
-GET / HTTP/1.1[crlf] Host: ${domain}[crlf] Upgrade: websocket[crlf] Connection: Upgrade[crlf]
+GET / HTTP/1.1[crlf] Host: ${domain_ws}[crlf] Upgrade: websocket[crlf] Connection: Upgrade[crlf]
 " | tee -a /var/log/create-ssh.log
 echo -e "${red}=========================================${nc}" | tee -a /var/log/create-ssh.log
 else
@@ -97,10 +98,10 @@ echo -e "SSH WS      : $sshws" | tee -a /var/log/create-ssh.log
 echo -e "SSH SSL WS  : $sshwsssl" | tee -a /var/log/create-ssh.log
 echo -e "SSH/SSL     : $ssl" | tee -a /var/log/create-ssh.log
 echo -e "UDPGW       : 7100-7900" | tee -a /var/log/create-ssh.log
-#echo -e "Port NS     : ALL Port" | tee -a /var/log/create-ssh.log
-#echo -e "Nameserver  : $sldomain" | tee -a /var/log/create-ssh.log
-#echo -e "Pubkey      : $slkey" | tee -a /var/log/create-ssh.log
-#echo -e "UDP Custom  : 1-65350" | tee -a /var/log/create-ssh.log
+echo -e "Port NS     : 53, 5300" | tee -a /var/log/create-ssh.log
+echo -e "Nameserver  : $sldomain" | tee -a /var/log/create-ssh.log
+echo -e "Pubkey      : $slkey" | tee -a /var/log/create-ssh.log
+echo -e "UDP Custom  : 1-65350" | tee -a /var/log/create-ssh.log
 echo -e "${red}=========================================${nc}" | tee -a /var/log/create-ssh.log
 echo -e "${blue}            OpenVPN Account            ${nc}" | tee -a /var/log/create-ssh.log
 echo -e "${red}=========================================${nc}" | tee -a /var/log/create-ssh.log
@@ -115,12 +116,12 @@ echo -e "openvpn zip  : https://$domain/openvpn/ovpn.zip" | tee -a /var/log/crea
 echo -e "${red}=========================================${nc}" | tee -a /var/log/create-ssh.log
 echo -e "Payload WSS" | tee -a /var/log/create-ssh.log
 echo -e "
-GET wss://bug.com HTTP/1.1[crlf] Host: ${domain}[crlf] Upgrade: websocket[crlf] Connection: Upgrade[crlf]
+GET wss://bug.com HTTP/1.1[crlf] Host: ${domain_ws}[crlf] Upgrade: websocket[crlf] Connection: Upgrade[crlf]
 " | tee -a /var/log/create-ssh.log
 echo -e "${red}=========================================${nc}" | tee -a /var/log/create-ssh.log
 echo -e "Payload WS" | tee -a /var/log/create-ssh.log
 echo -e "
-GET / HTTP/1.1[crlf] Host: ${domain}[crlf] Upgrade: websocket[crlf] Connection: Upgrade[crlf]
+GET / HTTP/1.1[crlf] Host: ${domain_ws}[crlf] Upgrade: websocket[crlf] Connection: Upgrade[crlf]
 " | tee -a /var/log/create-ssh.log
 echo -e "${red}=========================================${nc}" | tee -a /var/log/create-ssh.log
 fi
