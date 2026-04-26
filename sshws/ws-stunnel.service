@@ -1,0 +1,13 @@
+[Unit]
+Description=SSH WebSocket over Stunnel Service
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 -O /usr/local/bin/ws-stunnel 1444
+User=root
+Restart=always
+Type=simple
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target

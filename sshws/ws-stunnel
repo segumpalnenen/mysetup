@@ -1,0 +1,144 @@
+#!/usr/bin/python3
+import socket, threading, select, sys, time, logging, os, signal
+
+LISTENING_ADDR = '0.0.0.0'
+LISTENING_PORT = int(sys.argv[1]) if sys.argv[1:] else 1444
+BUFLEN = 4096 * 4
+TIMEOUT = 60
+DEFAULT_HOST = '127.0.0.1:110'
+RESPONSE = 'HTTP/1.1 101 Switching Protocols\r\n\r\n'
+
+logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(message)s')
+
+class Server(threading.Thread):
+    def __init__(self, host, port):
+        super().__init__()
+        self.running = False
+        self.host = host
+        self.port = port
+        self.threads = []
+        self.lock = threading.Lock()
+
+    def run(self):
+        self.soc = socket.socket(socket.AF_INET)
+        self.soc.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.soc.bind((self.host, self.port))
+        self.soc.listen(100)
+        self.running = True
+        logging.info(f"Listening on {self.host}:{self.port}")
+
+        while self.running:
+            try:
+                client, addr = self.soc.accept()
+                client.settimeout(TIMEOUT)
+                conn = ConnectionHandler(client, self, addr)
+                conn.start()
+                with self.lock:
+                    self.threads.append(conn)
+            except Exception as e:
+                logging.warning(f"Accept error: {e}")
+                continue
+
+    def removeConn(self, conn):
+        with self.lock:
+            if conn in self.threads:
+                self.threads.remove(conn)
+
+    def close(self):
+        self.running = False
+        with self.lock:
+            for conn in list(self.threads):
+                conn.close()
+        try:
+            self.soc.close()
+        except:
+            pass
+        logging.info("Server stopped")
+
+class ConnectionHandler(threading.Thread):
+    def __init__(self, client, server, addr):
+        super().__init__()
+        self.client = client
+        self.server = server
+        self.addr = addr
+        self.target = None
+
+    def close(self):
+        for s in [self.client, self.target]:
+            if s:
+                try:
+                    s.shutdown(socket.SHUT_RDWR)
+                    s.close()
+                except:
+                    pass
+
+    def run(self):
+        try:
+            data = self.client.recv(BUFLEN)
+            if not data:
+                return
+
+            hostPort = self.findHeader(data, b'X-Real-Host') or DEFAULT_HOST
+
+            self.method_CONNECT(hostPort.decode() if isinstance(hostPort, bytes) else hostPort)
+        except socket.timeout:
+            logging.info(f"{self.addr} Connection timed out")
+        except Exception as e:
+            logging.error(f"{self.addr} Error: {e}")
+        finally:
+            self.close()
+            self.server.removeConn(self)
+
+    def findHeader(self, data, header):
+        lines = data.split(b'\r\n')
+        for line in lines:
+            if line.startswith(header + b': '):
+                return line.split(b': ', 1)[1]
+        return None
+
+    def method_CONNECT(self, hostPort):
+        host, port = (hostPort.split(':') + ['443'])[:2]
+        port = int(port)
+        self.target = socket.create_connection((host, port), timeout=TIMEOUT)
+        self.client.send(RESPONSE.encode())
+        logging.info(f"{self.addr} Connected to {host}:{port}")
+        self.doCONNECT()
+
+    def doCONNECT(self):
+        sockets = [self.client, self.target]
+        while True:
+            try:
+                readable, _, _ = select.select(sockets, [], [], 3)
+                if not readable:
+                    continue
+                for s in readable:
+                    data = s.recv(BUFLEN)
+                    if not data:
+                        return
+                    if s is self.target:
+                        self.client.sendall(data)
+                    else:
+                        self.target.sendall(data)
+            except (socket.timeout, ConnectionResetError):
+                return
+            except Exception as e:
+                logging.error(f"{self.addr} Forwarding error: {e}")
+                return
+
+def signal_handler(sig, frame):
+    logging.info("Stopping server...")
+    try:
+        server.close()
+    except:
+        pass
+    sys.exit(0)
+
+if __name__ == '__main__':
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
+    server = Server(LISTENING_ADDR, LISTENING_PORT)
+    server.start()
+    logging.info("Server started")
+    while True:
+        time.sleep(1)

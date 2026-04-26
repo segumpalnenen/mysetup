@@ -1,0 +1,184 @@
+#!/usr/bin/python3
+import socket
+import threading
+import select
+import sys
+import time
+import signal
+import logging
+
+LISTENING_ADDR = '0.0.0.0'
+LISTENING_PORT = int(sys.argv[1]) if sys.argv[1:] else 1445
+DEFAULT_TARGET = '127.0.0.1:110'
+BUFLEN = 4096 * 4
+IDLE_TIMEOUT = 60
+RESPONSE = 'HTTP/1.1 101 Switching Protocols\r\n\r\n'
+
+logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(message)s')
+
+class ConnectionHandler(threading.Thread):
+    def __init__(self, client_sock, client_addr):
+        super().__init__(daemon=True)
+        self.client = client_sock
+        self.addr = client_addr
+        self.target = None
+        self.last_data = time.time()
+
+    def close_sockets(self):
+        for s, name in ((self.client, 'client'), (self.target, 'target')):
+            if not s:
+                continue
+            try:
+                s.shutdown(socket.SHUT_RDWR)
+            except Exception:
+                pass
+            try:
+                s.close()
+            except Exception:
+                pass
+
+    def recv_initial(self):
+        try:
+            data = self.client.recv(BUFLEN)
+            return data
+        except Exception as e:
+            logging.debug(f"{self.addr} initial recv error: {e}")
+            return b''
+
+    def parse_header(self, data, header):
+        if not data:
+            return ''
+        try:
+            s = data.decode('utf-8', errors='ignore')
+            for line in s.split('\r\n'):
+                if line.lower().startswith(header.lower() + ':'):
+                    return line.split(':', 1)[1].strip()
+        except Exception:
+            pass
+        return ''
+
+    def connect_target(self, hostport):
+        parts = hostport.split(':')
+        host = parts[0] if parts[0] else '127.0.0.1'
+        port = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 22
+        self.target = socket.create_connection((host, port))
+        self.target.setblocking(1)
+        logging.info(f"{self.addr[0]} -> {host}:{port}")
+
+    def run(self):
+        try:
+            initial = self.recv_initial()
+            hostport = self.parse_header(initial, 'X-Real-Host') or DEFAULT_TARGET
+
+            try:
+                self.connect_target(hostport)
+            except Exception as e:
+                logging.error(f"Target connect failed ({hostport}): {e}")
+                self.close_sockets()
+                return
+
+            try:
+                self.client.sendall(RESPONSE.encode())
+            except Exception as e:
+                logging.debug(f"{self.addr} send 101 failed: {e}")
+                self.close_sockets()
+                return
+
+            sockets = [self.client, self.target]
+            self.last_data = time.time()
+
+            while True:
+                r, _, _ = select.select(sockets, [], [], 3)
+                if not r:
+                    if time.time() - self.last_data > IDLE_TIMEOUT:
+                        logging.info(f"{self.addr} idle timeout, closing")
+                        break
+                    continue
+
+                for s in r:
+                    try:
+                        data = s.recv(BUFLEN)
+                    except Exception:
+                        data = b''
+
+                    if not data:
+                        logging.debug(f"{self.addr} connection closed by {'target' if s is self.target else 'client'}")
+                        return
+
+                    try:
+                        if s is self.target:
+                            self.client.sendall(data)
+                        else:
+                            self.target.sendall(data)
+                    except Exception:
+                        return
+
+                    self.last_data = time.time()
+        finally:
+            self.close_sockets()
+
+class Server(threading.Thread):
+    def __init__(self, host, port):
+        super().__init__(daemon=True)
+        self.host = host
+        self.port = port
+        self.sock = None
+        self.threads = []
+        self.running = False
+
+    def run(self):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.bind((self.host, int(self.port)))
+        self.sock.listen(200)
+        self.running = True
+        logging.info(f"ws-dropbear listening on {self.host}:{self.port}")
+
+        try:
+            while self.running:
+                try:
+                    c, addr = self.sock.accept()
+                    c.setblocking(1)
+                    handler = ConnectionHandler(c, addr)
+                    handler.start()
+                    self.threads.append(handler)
+                except Exception as e:
+                    logging.debug(f"Accept error: {e}")
+                    continue
+        finally:
+            self.shutdown()
+
+    def shutdown(self):
+        self.running = False
+        logging.info("Shutting down server, closing connections...")
+        try:
+            if self.sock:
+                self.sock.close()
+        except:
+            pass
+        for t in self.threads:
+            try:
+                t.close_sockets()
+            except:
+                pass
+
+def handle_signal(signum, frame):
+    logging.info(f"Signal {signum} received, exiting...")
+    try:
+        srv.shutdown()
+    except Exception:
+        pass
+    sys.exit(0)
+
+if __name__ == '__main__':
+    signal.signal(signal.SIGINT, handle_signal)
+    signal.signal(signal.SIGTERM, handle_signal)
+
+    srv = Server(LISTENING_ADDR, LISTENING_PORT)
+    srv.start()
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        srv.shutdown()
+        sys.exit(0)

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoScriptXray - VPS Management</title>
+<link rel="icon" type="image/x-icon" href="https://raw.githubusercontent.com/givps/favicon/main/favicon.ico">
+
+<style>
+    /* ==== Tema Utama ==== */
+    :root {
+        --bg-dark: linear-gradient(135deg, #0f172a, #1e293b);
+        --card-bg: #1e293b;
+        --text-light: #f8fafc;
+        --text-muted: #94a3b8;
+        --accent: #38bdf8;
+        --border-soft: rgba(56,189,248,0.2);
+    }
+
+    body {
+        font-family: "Segoe UI", sans-serif;
+        background: var(--bg-dark);
+        color: var(--text-light);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        min-height: 100vh;
+        margin: 0;
+        padding: 60px 20px 100px;
+    }
+
+    h1 {
+        font-size: 2.8em;
+        color: var(--accent);
+        margin-bottom: 10px;
+        text-align: center;
+    }
+
+    .subtitle {
+        color: var(--text-muted);
+        text-align: center;
+        margin-bottom: 40px;
+        font-size: 1.1em;
+    }
+
+    /* ==== Kartu Fitur ==== */
+    .features {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        width: 100%;
+        max-width: 800px;
+    }
+
+    .feature-card {
+        background: var(--card-bg);
+        border-radius: 12px;
+        padding: 25px;
+        text-align: center;
+        border: 1px solid var(--border-soft);
+        box-shadow: 0 0 20px rgba(56,189,248,0.1);
+        transition: transform 0.2s, background 0.3s;
+    }
+
+    .feature-card:hover {
+        background: #273549;
+        transform: translateY(-3px);
+    }
+
+    .feature-card h3 {
+        color: var(--accent);
+        margin-bottom: 10px;
+    }
+
+    .feature-card p {
+        color: var(--text-muted);
+        font-size: 0.95em;
+    }
+
+    /* ==== Footer ==== */
+    footer {
+        position: fixed;
+        bottom: 0;
+        width: 100%;
+        text-align: center;
+        padding: 12px 0;
+        background: rgba(15,23,42,0.85);
+        color: var(--text-muted);
+        font-size: 0.85em;
+        backdrop-filter: blur(6px);
+        border-top: 1px solid var(--border-soft);
+    }
+
+    .badges {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-bottom: 6px;
+    }
+
+    .badge img {
+        height: 22px;
+        transition: transform 0.2s ease;
+    }
+
+    .badge img:hover {
+        transform: scale(1.1);
+    }
+
+    /* ==== Responsif ==== */
+    @media (max-width: 600px) {
+        h1 { font-size: 2em; }
+        .subtitle { font-size: 0.95em; }
+    }
+</style>
+</head>
+
+<body>
+    <h1>🚀 AutoScriptXray</h1>
+    <p class="subtitle">Automated VPS Management & Optimization</p>
+
+    <section class="features">
+        <div class="feature-card">
+            <h3>⚡ Fast Setup</h3>
+            <p>Quick deployment of SSH, VPN, and proxy services with a single command.</p>
+        </div>
+        <div class="feature-card">
+            <h3>🔒 Secure</h3>
+            <p>Automatic security updates and strong encryption built-in for every service.</p>
+        </div>
+        <div class="feature-card">
+            <h3>🛠️ Easy Management</h3>
+            <p>Simple menu system for adding, removing, or monitoring VPS users.</p>
+        </div>
+    </section>
+
+    <footer>
+        <div class="badges">
+            <a href="https://github.com/givps" target="_blank" class="badge">
+                <img src="https://img.shields.io/badge/GitHub-Repository-blue?logo=github" alt="GitHub">
+            </a>
+            <a href="https://t.me/givps_com" target="_blank" class="badge">
+                <img src="https://img.shields.io/badge/Telegram-Group-blue?logo=telegram" alt="Telegram">
+            </a>
+            <a href="https://givps.com" target="_blank" class="badge">
+                <img src="https://img.shields.io/badge/Website-givps.com-blue?logo=web" alt="Website">
+            </a>
+        </div>
+        <p>© 2025 AutoScriptXray - VPS Management</p>
+    </footer>
+</body>
+</html>
