@@ -112,9 +112,16 @@ domain=$(cat /usr/local/etc/xray/domain 2>/dev/null || cat /root/domain 2>/dev/n
 [[ -z "$domain" ]] && echo -e "${red}[ERROR] Domain file not found!${nc}" && exit 1
 
 # ---------- Cloudflare Token ----------
+SAVED_CF_TOKEN=$(cat /etc/cf_token 2>/dev/null)
 DEFAULT_CF_TOKEN="XCu7wHsxlkbcU3GSPOEvl1BopubJxA9kDcr-Tkt8"
-read -rp "Enter Cloudflare API Token (ENTER for default): " CF_Token
-export CF_Token="${CF_Token:-$DEFAULT_CF_TOKEN}"
+
+if [[ -n "$SAVED_CF_TOKEN" ]]; then
+    export CF_Token="$SAVED_CF_TOKEN"
+    echo -e "[${green}INFO${nc}] Using saved Cloudflare Token"
+else
+    read -rp "Enter Cloudflare API Token (ENTER for default): " CF_Token
+    export CF_Token="${CF_Token:-$DEFAULT_CF_TOKEN}"
+fi
 
 # ---------- Retry helper ----------
 retry() { local n=1; until "$@"; do ((n++==5)) && exit 1; echo -e "${yellow}Retry $n...${nc}"; sleep 3; done; }

@@ -121,6 +121,7 @@ display_menu() {
     echo -e "${white} 10 ${nc} : Clear RAM Cache"
     echo -e "${white} 11 ${nc} : Reboot VPS"
     echo -e "${white} 12 ${nc} : Menu ZIVPN UDP"
+    echo -e "${white} 13 ${nc} : Menu WireGuard"
     echo -e "${white} x ${nc}  : Exit Script"
     echo -e ""
     echo -e "${red}=========================================${nc}"
@@ -177,6 +178,7 @@ main_menu() {
             10) clear ; clear_ram_cache ;;
             11) clear ; safe_reboot ;;
             12) clear ; menu-zivpn ;;
+            13) clear ; m-wg ;;
             x|X) 
                 echo -e "${green}Goodbye! To restart the menu use: menu${nc}"
                 exit 0 

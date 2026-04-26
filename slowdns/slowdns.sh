@@ -39,13 +39,19 @@ SUB_DOMAIN="${domen}"
 NS_DOMAIN="ns-${subsl}.${domen}"
 echo "$NS_DOMAIN" > /root/nsdomain
 
-# Ask for Cloudflare API Token manually (fallback to default if empty)
-read -rp "Enter your Cloudflare API Token (Enter to use default): " CF_TOKEN
-if [[ -z "$CF_TOKEN" ]]; then
-    CF_TOKEN="XCu7wHsxlkbcU3GSPOEvl1BopubJxA9kDcr-Tkt8"
-    echo "Using default API token..."
+# Get Cloudflare API Token (from file or manual)
+SAVED_CF_TOKEN=$(cat /etc/cf_token 2>/dev/null)
+if [[ -n "$SAVED_CF_TOKEN" ]]; then
+    CF_TOKEN="$SAVED_CF_TOKEN"
+    echo "Using saved Cloudflare Token"
 else
-    echo "Using manual API token."
+    read -rp "Enter your Cloudflare API Token (Enter to use default): " CF_TOKEN
+    if [[ -z "$CF_TOKEN" ]]; then
+        CF_TOKEN="XCu7wHsxlkbcU3GSPOEvl1BopubJxA9kDcr-Tkt8"
+        echo "Using default API token..."
+    else
+        echo "Using manual API token."
+    fi
 fi
 
 echo "Automatically adding NS record for ${SUB_DOMAIN}..."

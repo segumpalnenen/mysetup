@@ -127,12 +127,17 @@ iptables-save > /etc/iptables/rules.v4
 log_info "Downloading WireGuard management tools..."
 cd /usr/bin || exit 1
 scripts=("m-wg" "wg-add" "wg-del" "wg-renew" "wg-show")
+# === INSTALL SCRIPTS FROM GITHUB ===
+log_info "Downloading management scripts from GitHub..."
+REPO="https://raw.githubusercontent.com/segumpalnenen/mysetup/master"
+scripts=("m-wg" "wg-add" "wg-del" "wg-renew" "wg-show")
+
 for script in "${scripts[@]}"; do
-    if wget -q -O "$script" "$SCRIPTS_BASE_URL/${script}.sh"; then
-        chmod +x "$script"
-        log_info "Installed: $script"
+    if wget -q -O "/usr/bin/$script" "$REPO/wireguard/${script}.sh"; then
+        chmod +x "/usr/bin/$script"
+        log_info "Installed: /usr/bin/$script"
     else
-        log_warn "Failed to download $script"
+        log_warn "Failed to download $script from $REPO"
     fi
 done
 

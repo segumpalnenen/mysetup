@@ -55,6 +55,11 @@ safe_install() {
 mkdir -p /usr/local/etc/xray
 read -rp "Enter Base Domain (e.g., google.com): " basedom
 read -rp "Enter Server Code (e.g., sg1): " kode
+read -rp "Enter Cloudflare API Token: " cf_token
+
+# Save token for other scripts
+echo "$cf_token" > /etc/cf_token
+chmod 600 /etc/cf_token
 
 # Save domains
 for p in domain domain_vmess domain_vless domain_trojan domain_ssh domain_slowdns domain_zivpn; do
@@ -65,12 +70,21 @@ echo "vm${kode}.${basedom}" > /usr/local/etc/xray/domain_vmess
 echo "vl${kode}.${basedom}" > /usr/local/etc/xray/domain_vless
 echo "ns${kode}.${basedom}" > /usr/local/etc/xray/domain_slowdns
 
+# --- DNS AUTOMATION ---
+echo -e "${blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${nc}"
+echo -e "${yellow}  Automating DNS Records on Cloudflare...${nc}"
+echo -e "${blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${nc}"
+wget -q -O cf.sh "$REPO/ssh/cf.sh" && chmod +x cf.sh
+./cf.sh "$basedom" "$kode" "$cf_token"
+rm -f cf.sh
+
 # --- START INSTALLATION ---
 safe_install "SSH VPN" "ssh/ssh-vpn.sh"
 safe_install "XRAY" "xray/ins-xray.sh"
 safe_install "SSH WS" "ws/install-ws.sh"
 safe_install "OpenVPN" "openvpn/openvpn.sh"
 safe_install "SlowDNS" "slowdns/slowdns.sh"
+safe_install "WireGuard" "wireguard/wg.sh"
 safe_install "ZIVPN" "zivpn/ins-zivpn.sh"
 
 # Finalize
