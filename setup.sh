@@ -1,13 +1,24 @@
 #!/bin/bash
 # =========================================
-# setup (FULL GITHUB VERSION - IMPROVED)
+# setup (ULTRA-SAFE GITHUB VERSION)
 # =========================================
 
-# Color
+# Colors
 red='\e[1;31m'; green='\e[0;32m'; yellow='\e[1;33m'; blue='\e[1;34m'; nc='\e[0m'
 
-# REPOSITORY URL
-REPO="https://raw.githubusercontent.com/segumpalnenen/mysetup/master"
+# 1. Branch Detection
+REPO_BASE="https://raw.githubusercontent.com/segumpalnenen/mysetup"
+echo -e "[ INFO ] Checking repository branch..."
+if wget --spider -q "$REPO_BASE/master/setup.sh"; then
+    BRANCH="master"
+elif wget --spider -q "$REPO_BASE/main/setup.sh"; then
+    BRANCH="main"
+else
+    echo -e "${red}[ ERROR ] Repositori tidak ditemukan atau private!${nc}"
+    exit 1
+fi
+REPO="$REPO_BASE/$BRANCH"
+echo -e "[ INFO ] Using Branch: $BRANCH"
 
 # Status Tracking
 INSTALL_STATUS="/var/log/install-status.log"
@@ -22,39 +33,37 @@ safe_install() {
     echo -e "${yellow}  Installing $name...${nc}"
     echo -e "${blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${nc}"
     
-    # Download tanpa -q untuk debugging
     if wget -O "$script_name" "$REPO/$folder_path"; then
-        chmod +x "$script_name"
-        echo -e "[ INFO ] Running $script_name..."
-        if ./"$script_name"; then
-            echo -e "$name: SUCCESS" >> "$INSTALL_STATUS"
+        if [[ -s "$script_name" ]]; then
+            chmod +x "$script_name"
+            if ./"$script_name"; then
+                echo -e "$name: SUCCESS" >> "$INSTALL_STATUS"
+            else
+                echo -e "$name: FAILED (Execution Error)" >> "$INSTALL_STATUS"
+            fi
+            rm -f "$script_name"
         else
-            echo -e "$name: FAILED (Script Error)" >> "$INSTALL_STATUS"
+            echo -e "$name: FAILED (File 404/Empty)" >> "$INSTALL_STATUS"
+            rm -f "$script_name"
         fi
-        rm -f "$script_name"
     else
         echo -e "$name: FAILED (Download Error)" >> "$INSTALL_STATUS"
-        echo -e "${red}[ ERROR ] Gagal mendownload $name dari GitHub!${nc}"
-        echo -e "URL: $REPO/$folder_path"
     fi
 }
 
-# Timezone
-timedatectl set-timezone Asia/Jakarta
-timedatectl set-ntp true
-
 # Setup domains
 mkdir -p /usr/local/etc/xray
-read -rp "Enter Base Domain: " basedom
-read -rp "Enter Server Code: " kode
+read -rp "Enter Base Domain (e.g., google.com): " basedom
+read -rp "Enter Server Code (e.g., sg1): " kode
 
-echo "${kode}.${basedom}" > /usr/local/etc/xray/domain
+# Save domains
+for p in domain domain_vmess domain_vless domain_trojan domain_ssh domain_slowdns domain_zivpn; do
+    echo "${kode}.${basedom}" > "/usr/local/etc/xray/$p"
+done
+# override specific if needed
 echo "vm${kode}.${basedom}" > /usr/local/etc/xray/domain_vmess
 echo "vl${kode}.${basedom}" > /usr/local/etc/xray/domain_vless
-echo "tr${kode}.${basedom}" > /usr/local/etc/xray/domain_trojan
-echo "${kode}.${basedom}" > /usr/local/etc/xray/domain_ssh
 echo "ns${kode}.${basedom}" > /usr/local/etc/xray/domain_slowdns
-echo "zi${kode}.${basedom}" > /usr/local/etc/xray/domain_zivpn
 
 # --- START INSTALLATION ---
 safe_install "SSH VPN" "ssh/ssh-vpn.sh"
@@ -77,6 +86,6 @@ clear
 menu
 EOF
 
-echo -e "${green}Instalasi selesai! Laporan: /var/log/install-status.log${nc}"
+echo -e "${green}Instalasi selesai! SIlakan cek /var/log/install-status.log${nc}"
 sleep 2
 reboot
