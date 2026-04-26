@@ -10,6 +10,20 @@ yellow='\e[1;33m'
 blue='\e[1;34m'
 nc='\e[0m'
 
+# Error logging mechanism
+ERROR_LOG="/var/log/install-error.log"
+log_err() {
+    echo -e "[ $(date) ] ERROR di baris $1: $2" >> "$ERROR_LOG"
+    echo -e "${red}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${nc}"
+    echo -e "${red}          FATAL ERROR DETECTED           ${nc}"
+    echo -e "${red}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${nc}"
+    echo -e "${red} Baris  : $1${nc}"
+    echo -e "${red} Command: $2${nc}"
+    echo -e "${red} Log    : $ERROR_LOG${nc}"
+    echo -e "${red}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${nc}"
+}
+trap 'log_err $LINENO "$BASH_COMMAND"' ERR
+
 # Check root
 if [[ $EUID -ne 0 ]]; then
    echo "This script must be run as root!"
