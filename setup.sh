@@ -61,9 +61,10 @@ timedatectl | grep "Time zone"
 # -------------------------------
 echo "Enabling NTP..."
 timedatectl set-ntp true
-
 # Cek status sinkronisasi
-timedatectl status | grep -E "NTP enabled|NTP synchronized"
+timedatectl status | grep -E "NTP enabled|NTP synchronized" || true
+
+echo ""
 
 # -------------------------------
 # 3️⃣ Install & enable cron
@@ -125,23 +126,41 @@ sleep 2
 
 echo -e "${green}Done${nc}"
 
-echo -e "${red}=========================================${nc}"
-echo -e "${blue}       Install SSH VPN           ${nc}"
-echo -e "${red}=========================================${nc}"
-#install ssh vpn
-wget https://raw.githubusercontent.com/segumpalnenen/mysetup/master/ssh/ssh-vpn.sh && chmod +x ssh-vpn.sh && ./ssh-vpn.sh
+# Status Tracking
+INSTALL_STATUS="/var/log/install-status.log"
+echo "--- INSTALLATION REPORT $(date) ---" > "$INSTALL_STATUS"
 
-echo -e "${red}=========================================${nc}"
-echo -e "${blue}          Install XRAY              ${nc}"
-echo -e "${red}=========================================${nc}"
-#Instal Xray
-wget https://raw.githubusercontent.com/segumpalnenen/mysetup/master/xray/ins-xray.sh && chmod +x ins-xray.sh && ./ins-xray.sh
+safe_install() {
+    local name=$1
+    local cmd=$2
+    echo -e "${blue}[ INFO ]${nc} Memulai instalasi $name..."
+    if eval "$cmd"; then
+        echo -e "$name: ${green}SUCCESS${nc}" >> "$INSTALL_STATUS"
+        echo -e "${green}[ OK ]${nc} $name terpasang."
+    else
+        echo -e "$name: ${red}FAILED${nc}" >> "$INSTALL_STATUS"
+        echo -e "${red}[ WARN ]${nc} $name gagal diinstal, melanjutkan ke bagian lain..."
+    fi
+}
 
-echo -e "${red}=========================================${nc}"
-echo -e "${blue}      Install SSH Websocket           ${nc}"
-echo -e "${red}=========================================${nc}"
-# install sshws
-wget https://raw.githubusercontent.com/segumpalnenen/mysetup/master/ws/install-ws.sh && chmod +x install-ws.sh && ./install-ws.sh
+# --- Mulai Instalasi Komponen ---
+
+echo -e "${blue}Menginstal Komponen...${nc}"
+
+safe_install "SSH VPN" "./ssh-vpn.sh"
+safe_install "XRAY" "./ins-xray.sh"
+safe_install "SSH WS" "./install-ws.sh"
+safe_install "OpenVPN" "./openvpn.sh"
+safe_install "SlowDNS" "./slowdns.sh"
+
+# Zivpn logic (with folder check)
+if [[ -d "./zivpn" ]]; then
+    cd zivpn
+    safe_install "ZIVPN" "./ins-zivpn.sh"
+    cd ..
+else
+    safe_install "ZIVPN" "wget -q https://raw.githubusercontent.com/segumpalnenen/mysetup/master/zivpn/ins-zivpn.sh && chmod +x ins-zivpn.sh && ./ins-zivpn.sh"
+fi
 
 # ==========================================
 # INSTALL WEBSOCKET PROXY.JS
@@ -347,6 +366,16 @@ echo "   - Vmess gRPC               : 443" | tee -a ~/log-install.txt
 echo "   - Vless gRPC               : 443" | tee -a ~/log-install.txt
 echo "   - Trojan gRPC              : 443" | tee -a ~/log-install.txt
 echo "   - Shadowsocks gRPC         : 443" | tee -a ~/log-install.txt
+echo ""
+echo -e "=========================================" | tee -a ~/log-install.txt
+echo -e "               t.me/givps_com            "  | tee -a ~/log-install.txt
+echo -e "=========================================" | tee -a ~/log-install.txt
+echo ""
+echo -e "Auto reboot in 10 seconds..."
+sleep 10
+clear
+reboot
+     : 443" | tee -a ~/log-install.txt
 echo ""
 echo -e "=========================================" | tee -a ~/log-install.txt
 echo -e "               t.me/givps_com            "  | tee -a ~/log-install.txt
