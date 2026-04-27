@@ -65,15 +65,11 @@ else
     echo "$pubkey" > /etc/wireguard/public.key
 fi
 
-# === DETECT DEFAULT INTERFACE ===
-log_info "Detecting default network interface..."
-interface=$(ip route get 1 2>/dev/null | awk '{print $5; exit}')
-interface=${interface:-$(ip -o -4 route show to default | awk '{print $5}' | head -1)}
-if [ -z "$interface" ]; then
-    log_error "Failed to detect default network interface!"
-    exit 1
-fi
-log_info "Default interface: $interface"
+# === DETECT SERVER IP/DOMAIN ===
+log_info "Detecting server host..."
+server_ip=$(cat /usr/local/etc/xray/domain 2>/dev/null || curl -s -4 icanhazip.com)
+server_port=$(grep -m1 ListenPort /etc/wireguard/wg0.conf | awk '{print $3}' 2>/dev/null || echo "$WG_PORT")
+server_pubkey=$(wg show wg0 | awk '/public key/ {print $3; exit}' 2>/dev/null || echo "")
 
 # === CREATE WIREGUARD CONFIG ===
 log_info "Creating WireGuard configuration..."

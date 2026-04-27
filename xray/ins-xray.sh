@@ -446,6 +446,12 @@ server {
         tcp_nodelay on;
         tcp_nopush on;
     }
+
+    # OpenVPN Download Folder
+    location /openvpn {
+        alias /usr/share/nginx/html/openvpn;
+        autoindex on;
+    }
 }
 
 server {

@@ -8,8 +8,13 @@ export DEBIAN_FRONTEND=noninteractive
 OS=`uname -m`;
 MYIP=$(wget -qO- ipv4.icanhazip.com || curl -s ifconfig.me);
 rm -rf /etc/openvpn/
-rm -f /usr/share/nginx/html/openvpn/*.ovpn
-mkdir -p /usr/share/nginx/html/openvpn/
+# Create download directory
+rm -rf /usr/share/nginx/html/openvpn
+mkdir -p /usr/share/nginx/html/openvpn
+chmod -R 755 /usr/share/nginx/html/openvpn
+chown -R www-data:www-data /usr/share/nginx/html/openvpn
+
+# Download index
 wget -q -O /usr/share/nginx/html/openvpn/index.html "https://raw.githubusercontent.com/segumpalnenen/mysetup/master/openvpn/index"
 systemctl daemon-reload
 systemctl reload nginx

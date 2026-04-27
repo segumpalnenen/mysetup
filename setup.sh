@@ -70,15 +70,18 @@ read -rp "Enter Base Domain: " basedom
 read -rp "Enter Server Code: " kode
 read -rp "Enter Cloudflare Token: " cf_token
 echo "$cf_token" > /etc/cf_token && chmod 600 /etc/cf_token
-
 # Save domains
 for p in domain domain_vmess domain_vless domain_trojan domain_ssh domain_slowdns domain_zivpn domain_ssh_ws; do
     echo "${kode}.${basedom}" > "/usr/local/etc/xray/$p"
 done
-echo "vm${kode}.${basedom}" > /usr/local/etc/xray/domain_vmess
-echo "vl${kode}.${basedom}" > /usr/local/etc/xray/domain_vless
+# override specific with hyphen format
+echo "vm-${kode}.${basedom}" > /usr/local/etc/xray/domain_vmess
+echo "vl-${kode}.${basedom}" > /usr/local/etc/xray/domain_vless
+echo "tr-${kode}.${basedom}" > /usr/local/etc/xray/domain_trojan
 echo "ws-${kode}.${basedom}" > /usr/local/etc/xray/domain_ssh_ws
 echo "ns-${kode}.${basedom}" > /usr/local/etc/xray/domain_slowdns
+echo "zi-${kode}.${basedom}" > /usr/local/etc/xray/domain_zivpn
+
 
 # --- DNS AUTOMATION ---
 wget -O cf.sh "$REPO/ssh/cf.sh" && chmod +x cf.sh
@@ -93,6 +96,20 @@ safe_install "OpenVPN" "openvpn/openvpn.sh"
 safe_install "SlowDNS" "slowdns/slowdns.sh"
 safe_install "WireGuard" "wireguard/wg.sh"
 safe_install "ZIVPN" "zivpn/ins-zivpn.sh"
+
+# --- FINALIZING LOG ---
+echo "   >>> Service & Port"  | tee -a /root/log-install.txt
+echo "   - OpenSSH                  : 22, 2222"  | tee -a /root/log-install.txt
+echo "   - Dropbear                 : 109, 110" | tee -a /root/log-install.txt
+echo "   - SSH Websocket            : 80, 1445" | tee -a /root/log-install.txt
+echo "   - SSH SSL Websocket        : 444, 1444" | tee -a /root/log-install.txt
+echo "   - Stunnel4                 : 222, 333, 777" | tee -a /root/log-install.txt
+echo "   - Badvpn                   : 7100-7900" | tee -a /root/log-install.txt
+echo "   - OpenVPN                  : 443, 1195, 51825" | tee -a /root/log-install.txt
+echo "   - WireGuard                : 51820" | tee -a /root/log-install.txt
+echo "   - SlowDNS                  : 53, 5300" | tee -a /root/log-install.txt
+echo "   - ZIVPN UDP                : 5667, 10000-30000" | tee -a /root/log-install.txt
+echo "   - Nginx                    : 80, 8080" | tee -a /root/log-install.txt
 
 # Finalize
 apt install -y netfilter-persistent iptables-persistent

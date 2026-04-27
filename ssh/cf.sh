@@ -1,6 +1,6 @@
 #!/bin/bash
 # =========================================
-# AUTO CREATE DNS RECORDS CLOUDFLARE (NS & WS FIXED)
+# AUTO CREATE DNS RECORDS CLOUDFLARE (UNIFIED FORMAT)
 # =========================================
 set -euo pipefail
 
@@ -52,23 +52,24 @@ create_or_update() {
     fi
 }
 
-# --- DNS MAPPING ---
-MAIN_HOST="${SERVER_CODE}.${BASE_DOMAIN}"
-WS_HOST="ws-${SERVER_CODE}.${BASE_DOMAIN}"
-NS_HOST="ns-${SERVER_CODE}.${BASE_DOMAIN}"
-
 log "Starting DNS automation for IP: $IP"
 
-# 1. Main A Records
-create_or_update "$MAIN_HOST" "$IP" "A"
-create_or_update "$WS_HOST" "$IP" "A"   # New dedicated WS Subdomain
-create_or_update "vm${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"
-create_or_update "vl${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"
-create_or_update "tr${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"
-create_or_update "zi${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"
+# --- MAPPING SUBDOMAINS (Unified Format: service-code.domain) ---
+create_or_update "${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"           # Main/SSH
+create_or_update "ws-${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"        # SSH WS
+create_or_update "vm-${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"        # Vmess
+create_or_update "vl-${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"        # Vless
+create_or_update "tr-${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"        # Trojan
+create_or_update "zi-${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"        # Zivpn
+create_or_update "ss-${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"        # Shadowsocks
+create_or_update "ovpn-${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"      # OpenVPN
 
-# 2. SlowDNS NS Record (Pointing to Main Host)
-# SlowDNS butuh NS Record yang mengarah ke sebuah A Record (Main Host)
+# --- SLOWDNS NS RECORD ---
+NS_HOST="ns-${SERVER_CODE}.${BASE_DOMAIN}"
+MAIN_HOST="${SERVER_CODE}.${BASE_DOMAIN}"
 create_or_update "$NS_HOST" "$MAIN_HOST" "NS"
 
-log "${green}All DNS records (including NS & SSH-WS) processed!${nc}"
+# Save local copy for reference
+echo "$NS_HOST" > /root/nsdomain
+
+log "${green}All subdomains standardized and processed successfully!${nc}"
