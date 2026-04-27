@@ -136,9 +136,9 @@ validate_username() {
         return 1
     fi
     
-    # Check username format (letters, numbers, underscores only)
-    if [[ ! $user =~ ^[a-zA-Z0-9_]+$ ]]; then
-        echo -e "${red}ERROR${nc}: Username can only contain letters, numbers and underscores"
+    # Check username format (letters, numbers, underscores, and dashes)
+    if [[ ! $user =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        echo -e "${red}ERROR${nc}: Username can only contain letters, numbers, underscores, and dashes"
         return 1
     fi
     
@@ -171,21 +171,35 @@ check_xray_status() {
 }
 
 # Main script
-echo -e "${red}=========================================${nc}"
-echo -e "${blue}           CREATE VLess ACCOUNT        ${nc}"
-echo -e "${red}=========================================${nc}"
+if [[ $# -ge 3 ]]; then
+    user=$1
+    uuid=$2
+    masaaktif=$3
+    is_interactive=false
+else
+    is_interactive=true
+    echo -e "${red}=========================================${nc}"
+    echo -e "${blue}           CREATE VLess ACCOUNT        ${nc}"
+    echo -e "${red}=========================================${nc}"
+fi
 
 # Check Xray status
-echo -e "${yellow}Checking Xray service status...${nc}"
-xray_status=$(check_xray_status)
-echo -e "Xray service: $xray_status"
+if [[ "$is_interactive" == "true" ]]; then
+    echo -e "${yellow}Checking Xray service status...${nc}"
+    xray_status=$(check_xray_status)
+    echo -e "Xray service: $xray_status"
+fi
 
 # Validate domain exists
 if [[ -z "$domain" ]]; then
     echo -e "${red}ERROR${nc}: Domain not found. Please set domain first."
-    echo ""
-    read -n 1 -s -r -p "Press any key to back on menu"
-    m-vless 2>/dev/null || exit 1
+    if [[ "$is_interactive" == "true" ]]; then
+        echo ""
+        read -n 1 -s -r -p "Press any key to back on menu"
+        m-vless 2>/dev/null || exit 1
+    else
+        exit 1
+    fi
 fi
 
 # Get ports from log
@@ -196,82 +210,101 @@ grpc_port="$(cat ~/log-install.txt 2>/dev/null | grep -w "Vless gRPC" | cut -d: 
 # Validate ports
 if [[ -z "$tls" ]] || [[ -z "$none" ]]; then
     echo -e "${red}ERROR${nc}: Could not find VLess ports in log file."
-    echo -e "${yellow}Please check if VLess is properly installed.${nc}"
-    echo ""
-    read -n 1 -s -r -p "Press any key to back on menu"
-    m-vless 2>/dev/null || exit 1
+    if [[ "$is_interactive" == "true" ]]; then
+        echo -e "${yellow}Please check if VLess is properly installed.${nc}"
+        echo ""
+        read -n 1 -s -r -p "Press any key to back on menu"
+        m-vless 2>/dev/null || exit 1
+    else
+        exit 1
+    fi
 fi
 
 # Check gRPC availability
 grpc_enabled=false
 if [[ -n "$grpc_port" ]]; then
     grpc_enabled=true
-    echo -e "${green}✓ gRPC support detected on port: $grpc_port${nc}"
+    [[ "$is_interactive" == "true" ]] && echo -e "${green}✓ gRPC support detected on port: $grpc_port${nc}"
 else
-    echo -e "${yellow}ℹ gRPC support not detected (optional)${nc}"
+    [[ "$is_interactive" == "true" ]] && echo -e "${yellow}ℹ gRPC support not detected (optional)${nc}"
 fi
 
 # Main user input loop
-while true; do
-    echo ""
-    echo -e "${yellow}Info: Username must contain only letters, numbers, underscores${nc}"
-    if $grpc_enabled; then
-        echo -e "${green}✓ gRPC support available${nc}"
+if [[ "$is_interactive" == "true" ]]; then
+    while true; do
+        echo ""
+        echo -e "${yellow}Info: Username must contain only letters, numbers, underscores${nc}"
+        if $grpc_enabled; then
+            echo -e "${green}✓ gRPC support available${nc}"
+        fi
+        echo ""
+        
+        read -rp "Username: " user
+        
+        if validate_username "$user"; then
+            break
+        fi
+        
+        echo ""
+        echo -e "${red}Please choose a different username${nc}"
+        echo ""
+        read -n 1 -s -r -p "Press any key to continue..."
+        clear
+        echo -e "${red}=========================================${nc}"
+        echo -e "${blue}           CREATE VLess ACCOUNT        ${nc}"
+        echo -e "${red}=========================================${nc}"
+    done
+else
+    if ! validate_username "$user"; then
+        echo "Error: Username $user is invalid or already exists"
+        exit 1
     fi
-    echo ""
-    
-    read -rp "Username: " user
-    
-    if validate_username "$user"; then
-        break
-    fi
-    
-    echo ""
-    echo -e "${red}Please choose a different username${nc}"
-    echo ""
-    read -n 1 -s -r -p "Press any key to continue..."
-    clear
-    echo -e "${red}=========================================${nc}"
-    echo -e "${blue}           CREATE VLess ACCOUNT        ${nc}"
-    echo -e "${red}=========================================${nc}"
-done
+fi
 
-# Generate UUID
-echo -e "${yellow}Generating UUID...${nc}"
-uuid=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || python3 -c "import uuid; print(uuid.uuid4())" 2>/dev/null || openssl rand -hex 16 2>/dev/null || echo "fallback-$(date +%s)")
+# Generate UUID if not provided
+if [[ -z "$uuid" ]]; then
+    [[ "$is_interactive" == "true" ]] && echo -e "${yellow}Generating UUID...${nc}"
+    uuid=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || python3 -c "import uuid; print(uuid.uuid4())" 2>/dev/null || openssl rand -hex 16 2>/dev/null || echo "fallback-$(date +%s)")
+fi
 
 if [[ -z "$uuid" ]] || [[ "$uuid" == "fallback-"* ]]; then
     echo -e "${red}ERROR${nc}: Failed to generate valid UUID"
     exit 1
 fi
 
-echo -e "${green}Generated UUID: $uuid${nc}"
+[[ "$is_interactive" == "true" ]] && echo -e "${green}Generated UUID: $uuid${nc}"
 
 # Get expiry date with validation
-while true; do
-    echo ""
-    read -p "Expired (days): " masaaktif
-    if [[ $masaaktif =~ ^[0-9]+$ ]] && [ $masaaktif -gt 0 ] && [ $masaaktif -le 3650 ]; then
-        break
-    else
-        echo -e "${red}ERROR${nc}: Please enter a valid number of days (1-3650)"
-    fi
-done
+if [[ "$is_interactive" == "true" ]]; then
+    while true; do
+        echo ""
+        read -p "Expired (days): " masaaktif
+        if [[ $masaaktif =~ ^[0-9]+$ ]] && [ $masaaktif -gt 0 ] && [ $masaaktif -le 3650 ]; then
+            break
+        else
+            echo -e "${red}ERROR${nc}: Please enter a valid number of days (1-3650)"
+        fi
+    done
+fi
 
 exp=$(date -d "$masaaktif days" +"%Y-%m-%d" 2>/dev/null || date -v+"$masaaktif"d "+%Y-%m-%d" 2>/dev/null || echo "unknown")
-echo -e "${yellow}Account will expire on: $exp${nc}"
+[[ "$is_interactive" == "true" ]] && echo -e "${yellow}Account will expire on: $exp${nc}"
 
 # Backup config before modification
-echo -e "${yellow}Creating backup...${nc}"
+[[ "$is_interactive" == "true" ]] && echo -e "${yellow}Creating backup...${nc}"
 backup_file=$(backup_config)
 
 if [[ "$backup_file" == "error" ]]; then
     echo -e "${red}ERROR${nc}: Failed to create backup!"
-    read -n 1 -s -r -p "Press any key to back on menu"
-    m-vless 2>/dev/null || exit 1
+    if [[ "$is_interactive" == "true" ]]; then
+        read -n 1 -s -r -p "Press any key to back on menu"
+        m-vless 2>/dev/null || exit 1
+    else
+        exit 1
+    fi
 fi
 
-echo -e "${green}✓ Backup created: $backup_file${nc}"
+[[ "$is_interactive" == "true" ]] && echo -e "${green}✓ Backup created: $backup_file${nc}"
 
 # Add user to config.json
 echo -e "${yellow}Updating Xray configuration...${nc}"

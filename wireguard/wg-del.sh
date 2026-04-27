@@ -168,6 +168,18 @@ show_menu() {
 }
 
 # ---------- Main ----------
+if [[ $# -ge 1 ]]; then
+    validate_environment
+    if [[ "$1" == "expired" ]]; then
+        delete_expired_users
+    else
+        delete_user "$1"
+    fi
+    # Reload WireGuard
+    systemctl reload-or-restart wg-quick@wg0 >/dev/null 2>&1
+    exit 0
+fi
+
 main() {
     validate_environment
     local opt restart_needed=false

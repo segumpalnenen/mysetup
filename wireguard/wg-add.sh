@@ -30,15 +30,23 @@ if ! systemctl is-active --quiet wg-quick@wg0; then
 fi
 
 # ---------- Input Username ----------
-read -rp "Enter username: " user
+if [[ $# -ge 2 ]]; then
+    user=$1
+    masaaktif=$2
+    is_interactive=false
+else
+    is_interactive=true
+    read -rp "Enter username: " user
+fi
+
 if [[ -z "$user" ]]; then
   log_error "Username cannot be empty!"
   exit 1
 fi
 user=$(echo "$user" | tr '[:upper:]' '[:lower:]')
 
-if [[ ! "$user" =~ ^[a-zA-Z0-9_]+$ ]]; then
-  log_error "Username can only contain letters, numbers, and underscores"
+if [[ ! "$user" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+  log_error "Username can only contain letters, numbers, underscores, and dashes"
   exit 1
 fi
 
@@ -49,6 +57,13 @@ if [[ -f "$client_config" ]]; then
   log_error "User '$user' already exists."
   exit 1
 fi
+
+# ---------- Expiry Handling ----------
+if [[ "$is_interactive" == "true" ]]; then
+    read -rp "Expired (days): " masaaktif
+    [[ -z "$masaaktif" ]] && masaaktif=30
+fi
+exp=$(date -d "$masaaktif days" +"%Y-%m-%d" 2>/dev/null || date -v+"$masaaktif"d "+%Y-%m-%d" 2>/dev/null || echo "unknown")
 
 # ---------- Generate Keys ----------
 log_info "Generating cryptographic keys..."
@@ -194,8 +209,10 @@ log_info "To revoke this user, run: wg-del $user"
 log_info "To show all users, run: wg-show"
 
 # ---------- Return to Menu ----------
-if command -v m-wg >/dev/null 2>&1; then
-  read -n 1 -s -r -p "Press any key to return to menu..."
-  clear
-  m-wg
+if [[ "$is_interactive" == "true" ]]; then
+    if command -v m-wg >/dev/null 2>&1; then
+      read -n 1 -s -r -p "Press any key to return to menu..."
+      clear
+      m-wg
+    fi
 fi

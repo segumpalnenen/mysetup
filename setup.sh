@@ -1,35 +1,41 @@
 #!/bin/bash
 # =========================================
-# setup (ULTRA-SAFE GITHUB VERSION)
+# setup (ULTRA-DEBUG & FULL GITHUB VERSION)
 # =========================================
+
+# 1. Inisialisasi Logging Global
+LOG_FILE="/var/log/install.log"
+INSTALL_STATUS="/var/log/install-status.log"
+touch "$LOG_FILE"
+touch "$INSTALL_STATUS"
+
+# Redirect semua output ke log file dan terminal
+exec > >(tee -a "$LOG_FILE") 2>&1
 
 # Colors
 red='\e[1;31m'; green='\e[0;32m'; yellow='\e[1;33m'; blue='\e[1;34m'; nc='\e[0m'
 
-# 1. Branch Detection
+echo -e "${blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${nc}"
+echo -e "${yellow}      LOGGING STARTED: $LOG_FILE         ${nc}"
+echo -e "${blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${nc}"
+
+# 2. Branch Detection
 REPO_BASE="https://raw.githubusercontent.com/segumpalnenen/mysetup"
 echo -e "[ INFO ] Checking repository branch..."
 if wget --spider -q "$REPO_BASE/master/setup.sh"; then
     BRANCH="master"
-elif wget --spider -q "$REPO_BASE/main/setup.sh"; then
-    BRANCH="main"
 else
-    echo -e "${red}[ ERROR ] Repositori tidak ditemukan atau private!${nc}"
-    exit 1
+    BRANCH="main"
 fi
 REPO="$REPO_BASE/$BRANCH"
 echo -e "[ INFO ] Using Branch: $BRANCH"
-
-# Status Tracking
-INSTALL_STATUS="/var/log/install-status.log"
-echo "--- INSTALLATION REPORT $(date) ---" > "$INSTALL_STATUS"
 
 safe_install() {
     local name=$1
     local folder_path=$2
     local script_name=$(basename "$folder_path")
     
-    echo -e "${blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${nc}"
+    echo -e "\n${blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${nc}"
     echo -e "${yellow}  Installing $name...${nc}"
     echo -e "${blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${nc}"
     
@@ -39,43 +45,43 @@ safe_install() {
             if ./"$script_name"; then
                 echo -e "$name: SUCCESS" >> "$INSTALL_STATUS"
             else
-                echo -e "$name: FAILED (Execution Error)" >> "$INSTALL_STATUS"
+                echo -e "${red}[ ERROR ] $name execution failed!${nc}"
+                echo -e "$name: FAILED (Script Error)" >> "$INSTALL_STATUS"
             fi
             rm -f "$script_name"
         else
-            echo -e "$name: FAILED (File 404/Empty)" >> "$INSTALL_STATUS"
-            rm -f "$script_name"
+            echo -e "${red}[ ERROR ] $name file is empty (404)${nc}"
+            echo -e "$name: FAILED (Empty File)" >> "$INSTALL_STATUS"
         fi
     else
+        echo -e "${red}[ ERROR ] Failed to download $name${nc}"
         echo -e "$name: FAILED (Download Error)" >> "$INSTALL_STATUS"
     fi
 }
 
-# Setup domains
-mkdir -p /usr/local/etc/xray
-read -rp "Enter Base Domain (e.g., google.com): " basedom
-read -rp "Enter Server Code (e.g., sg1): " kode
-read -rp "Enter Cloudflare API Token: " cf_token
+# Timezone & Tools
+timedatectl set-timezone Asia/Jakarta
+timedatectl set-ntp true
+apt update && apt install -y curl wget jq net-tools psmisc
 
-# Save token for other scripts
-echo "$cf_token" > /etc/cf_token
-chmod 600 /etc/cf_token
+# Setup domains & Token
+mkdir -p /usr/local/etc/xray
+read -rp "Enter Base Domain: " basedom
+read -rp "Enter Server Code: " kode
+read -rp "Enter Cloudflare Token: " cf_token
+echo "$cf_token" > /etc/cf_token && chmod 600 /etc/cf_token
 
 # Save domains
 for p in domain domain_vmess domain_vless domain_trojan domain_ssh domain_slowdns domain_zivpn domain_ssh_ws; do
     echo "${kode}.${basedom}" > "/usr/local/etc/xray/$p"
 done
-# override specific if needed
 echo "vm${kode}.${basedom}" > /usr/local/etc/xray/domain_vmess
 echo "vl${kode}.${basedom}" > /usr/local/etc/xray/domain_vless
 echo "ws-${kode}.${basedom}" > /usr/local/etc/xray/domain_ssh_ws
 echo "ns-${kode}.${basedom}" > /usr/local/etc/xray/domain_slowdns
 
 # --- DNS AUTOMATION ---
-echo -e "${blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${nc}"
-echo -e "${yellow}  Automating DNS Records on Cloudflare...${nc}"
-echo -e "${blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${nc}"
-wget -q -O cf.sh "$REPO/ssh/cf.sh" && chmod +x cf.sh
+wget -O cf.sh "$REPO/ssh/cf.sh" && chmod +x cf.sh
 ./cf.sh "$basedom" "$kode" "$cf_token"
 rm -f cf.sh
 
@@ -101,6 +107,11 @@ clear
 menu
 EOF
 
-echo -e "${green}Instalasi selesai! SIlakan cek /var/log/install-status.log${nc}"
-sleep 2
+echo -e "\n${green}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${nc}"
+echo -e "${green}         INSTALLATION COMPLETED          ${nc}"
+echo -e "${green}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${nc}"
+echo -e " Full Log   : $LOG_FILE"
+echo -e " Status     : /var/log/install-status.log"
+echo -e "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+sleep 5
 reboot

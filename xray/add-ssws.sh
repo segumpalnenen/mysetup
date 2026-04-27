@@ -45,9 +45,9 @@ fi
 validate_username() {
     local user="$1"
     
-    # Validate format
-    if [[ ! $user =~ ^[a-zA-Z0-9_]+$ ]]; then
-        echo -e "${red}ERROR${nc}: Username can only contain letters, numbers and underscores"
+    # Validate format (letters, numbers, underscores, and dashes)
+    if [[ ! $user =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        echo -e "${red}ERROR${nc}: Username can only contain letters, numbers, underscores, and dashes"
         return 1
     fi
     
@@ -278,51 +278,71 @@ update_user_expiry() {
 }
 
 # Main user input loop
-while true; do
-    echo -e "${red}=========================================${nc}"
-    echo -e "${blue}        ADD SHADOWSOCKS ACCOUNT        ${nc}"
-    echo -e "${red}=========================================${nc}"
-    echo -e "${yellow}Info: Username must contain only letters, numbers, underscores${nc}"
-    if $grpc_enabled; then
-        echo -e "${green}✓ gRPC support available${nc}"
-    else
-        echo -e "${yellow}ℹ gRPC support not available${nc}"
+if [[ $# -ge 3 ]]; then
+    user=$1
+    uuid=$2
+    masaaktif=$3
+    is_interactive=false
+else
+    is_interactive=true
+    while true; do
+        echo -e "${red}=========================================${nc}"
+        echo -e "${blue}        ADD SHADOWSOCKS ACCOUNT        ${nc}"
+        echo -e "${red}=========================================${nc}"
+        echo -e "${yellow}Info: Username must contain only letters, numbers, underscores${nc}"
+        if $grpc_enabled; then
+            echo -e "${green}✓ gRPC support available${nc}"
+        else
+            echo -e "${yellow}ℹ gRPC support not available${nc}"
+        fi
+        echo ""
+        
+        read -rp "Username: " user
+        
+        if validate_username "$user"; then
+            break
+        fi
+        
+        echo ""
+        echo -e "${red}Please choose a different username${nc}"
+        echo ""
+        read -n 1 -s -r -p "Press any key to continue..."
+        clear
+    done
+fi
+
+# Validate username in non-interactive mode
+if [[ "$is_interactive" == "false" ]]; then
+    if ! validate_username "$user"; then
+        echo "Error: Username $user is invalid or already exists"
+        exit 1
     fi
-    echo ""
-    
-    read -rp "Username: " user
-    
-    if validate_username "$user"; then
-        break
-    fi
-    
-    echo ""
-    echo -e "${red}Please choose a different username${nc}"
-    echo ""
-    read -n 1 -s -r -p "Press any key to continue..."
-    clear
-done
+fi
 
 # Cipher and UUID
 cipher="aes-128-gcm"
-uuid=$(cat /proc/sys/kernel/random/uuid)
+if [[ -z "$uuid" ]]; then
+    uuid=$(cat /proc/sys/kernel/random/uuid)
+fi
 
 # Get expiry date with validation
-while true; do
-    read -p "Expired (days): " masaaktif
-    if [[ $masaaktif =~ ^[0-9]+$ ]] && [[ $masaaktif -gt 0 ]]; then
-        if [[ $masaaktif -gt 3650 ]]; then
-            echo -e "${red}ERROR${nc}: Cannot extend more than 10 years"
-            continue
+if [[ "$is_interactive" == "true" ]]; then
+    while true; do
+        read -p "Expired (days): " masaaktif
+        if [[ $masaaktif =~ ^[0-9]+$ ]] && [[ $masaaktif -gt 0 ]]; then
+            if [[ $masaaktif -gt 3650 ]]; then
+                echo -e "${red}ERROR${nc}: Cannot extend more than 10 years"
+                continue
+            fi
+            break
+        else
+            echo -e "${red}ERROR${nc}: Please enter a valid number of days"
         fi
-        break
-    else
-        echo -e "${red}ERROR${nc}: Please enter a valid number of days"
-    fi
-done
+    done
+fi
 
 exp=$(date -d "$masaaktif days" +"%Y-%m-%d")
-echo -e "${yellow}Account will expire on: $exp${nc}"
+[[ "$is_interactive" == "true" ]] && echo -e "${yellow}Account will expire on: $exp${nc}"
 
 # Add user to config
 echo -e "${yellow}Updating Xray configuration...${nc}"

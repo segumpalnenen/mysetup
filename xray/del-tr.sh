@@ -276,102 +276,118 @@ cleanup_user_files() {
 }
 
 # Main script
-echo -e "${yellow}Loading Trojan users...${nc}"
+if [[ $# -ge 1 ]]; then
+    user=$1
+    is_interactive=false
+else
+    is_interactive=true
+    echo -e "${yellow}Loading Trojan users...${nc}"
+fi
+
 NUMBER_OF_CLIENTS=$(count_trojan_users)
 users=($(get_trojan_users))
 
-if [[ ${NUMBER_OF_CLIENTS} -eq 0 ]]; then
+if [[ "$is_interactive" == "true" ]]; then
+    if [[ ${NUMBER_OF_CLIENTS} -eq 0 ]]; then
+        echo -e "${red}=========================================${nc}"
+        echo -e "${blue}         DELETE TROJAN ACCOUNT         ${nc}"
+        echo -e "${red}=========================================${nc}"
+        echo ""
+        echo -e "${yellow}  • No Trojan users found${nc}"
+        echo -e "${yellow}  • Check if Xray config exists${nc}"
+        echo ""
+        
+        # Debug info
+        if [[ -f "/usr/local/etc/xray/config.json" ]]; then
+            echo -e "${blue}Config file exists but no users found${nc}"
+            echo -e "${yellow}Available inbound tags:${nc}"
+            jq -r '.inbounds[]? | .tag' /usr/local/etc/xray/config.json 2>/dev/null || echo "Cannot read config"
+        else
+            echo -e "${red}Config file not found${nc}"
+        fi
+        
+        echo -e "${red}=========================================${nc}"
+        echo ""
+        read -n 1 -s -r -p "   Press any key to back on menu"
+        m-trojan
+        exit 0
+    fi
+
+    # Display current users
+    clear
     echo -e "${red}=========================================${nc}"
     echo -e "${blue}         DELETE TROJAN ACCOUNT         ${nc}"
     echo -e "${red}=========================================${nc}"
-    echo ""
-    echo -e "${yellow}  • No Trojan users found${nc}"
-    echo -e "${yellow}  • Check if Xray config exists${nc}"
-    echo ""
-    
-    # Debug info
-    if [[ -f "/usr/local/etc/xray/config.json" ]]; then
-        echo -e "${blue}Config file exists but no users found${nc}"
-        echo -e "${yellow}Available inbound tags:${nc}"
-        jq -r '.inbounds[]? | .tag' /usr/local/etc/xray/config.json 2>/dev/null || echo "Cannot read config"
-    else
-        echo -e "${red}Config file not found${nc}"
-    fi
-    
+    echo -e "${green}  No.  Username           Expired Date${nc}"
+    echo -e "${red}=========================================${nc}"
+
+    # Display users with numbers
+    for i in "${!users[@]}"; do
+        u_name="${users[i]}"
+        expiry=$(get_user_expiry "$u_name")
+        printf "  %-3s %-18s %s\n" "$((i+1))" "$u_name" "$expiry"
+    done
+
+    echo -e "${red}=========================================${nc}"
+    echo -e "${yellow}  • Total Users: $NUMBER_OF_CLIENTS${nc}"
+    echo -e "${yellow}  • [NOTE] Press Enter without input to cancel${nc}"
     echo -e "${red}=========================================${nc}"
     echo ""
-    read -n 1 -s -r -p "   Press any key to back on menu"
-    m-trojan
-    exit 0
-fi
 
-# Display current users
-clear
-echo -e "${red}=========================================${nc}"
-echo -e "${blue}         DELETE TROJAN ACCOUNT         ${nc}"
-echo -e "${red}=========================================${nc}"
-echo -e "${green}  No.  Username           Expired Date${nc}"
-echo -e "${red}=========================================${nc}"
+    read -rp "   Input Username : " user
 
-# Display users with numbers
-for i in "${!users[@]}"; do
-    user="${users[i]}"
-    expiry=$(get_user_expiry "$user")
-    printf "  %-3s %-18s %s\n" "$((i+1))" "$user" "$expiry"
-done
-
-echo -e "${red}=========================================${nc}"
-echo -e "${yellow}  • Total Users: $NUMBER_OF_CLIENTS${nc}"
-echo -e "${yellow}  • [NOTE] Press Enter without input to cancel${nc}"
-echo -e "${red}=========================================${nc}"
-echo ""
-
-read -rp "   Input Username : " user
-
-# Check if user input is empty
-if [[ -z "$user" ]]; then
-    echo -e "${yellow}  • Operation cancelled${nc}"
-    echo ""
-    read -n 1 -s -r -p "   Press any key to back on menu"
-    m-trojan
-    exit 0
+    # Check if user input is empty
+    if [[ -z "$user" ]]; then
+        echo -e "${yellow}  • Operation cancelled${nc}"
+        echo ""
+        read -n 1 -s -r -p "   Press any key to back on menu"
+        m-trojan
+        exit 0
+    fi
 fi
 
 # Validate user exists
 if ! printf '%s\n' "${users[@]}" | grep -q "^$user$"; then
-    echo -e "${red}=========================================${nc}"
-    echo -e "${blue}         DELETE TROJAN ACCOUNT         ${nc}"
-    echo -e "${red}=========================================${nc}"
-    echo -e "${red}  • Error: User '$user' not found!${nc}"
-    echo ""
-    echo -e "${yellow}  • Available users:${nc}"
-    for i in "${!users[@]}"; do
-        echo -e "     $((i+1)). ${users[i]}"
-    done
-    echo -e "${red}=========================================${nc}"
-    read -n 1 -s -r -p "   Press any key to back on menu"
-    m-trojan
-    exit 1
+    if [[ "$is_interactive" == "true" ]]; then
+        echo -e "${red}=========================================${nc}"
+        echo -e "${blue}         DELETE TROJAN ACCOUNT         ${nc}"
+        echo -e "${red}=========================================${nc}"
+        echo -e "${red}  • Error: User '$user' not found!${nc}"
+        echo ""
+        echo -e "${yellow}  • Available users:${nc}"
+        for i in "${!users[@]}"; do
+            echo -e "     $((i+1)). ${users[i]}"
+        done
+        echo -e "${red}=========================================${nc}"
+        read -n 1 -s -r -p "   Press any key to back on menu"
+        m-trojan
+        exit 1
+    else
+        echo "Error: User '$user' not found"
+        exit 1
+    fi
 fi
 
 # Get user expiry date
 exp=$(get_user_expiry "$user")
 
 # Confirm deletion
-echo ""
-echo -e "${yellow}  • Confirm deletion:${nc}"
-echo -e "     Username: $user"
-echo -e "     Expiry: $exp"
-echo -e "     This action cannot be undone!"
-echo ""
-read -rp "   Type 'DELETE' to confirm: " confirmation
-
-if [[ "$confirmation" != "DELETE" ]]; then
-    echo -e "${yellow}  • Deletion cancelled${nc}"
+if [[ "$is_interactive" == "true" ]]; then
     echo ""
-    read -n 1 -s -r -p "   Press any key to back on menu"
-    m-trojan
-    exit 0
+    echo -e "${yellow}  • Confirm deletion:${nc}"
+    echo -e "     Username: $user"
+    echo -e "     Expiry: $exp"
+    echo -e "     This action cannot be undone!"
+    echo ""
+    read -rp "   Type 'DELETE' to confirm: " confirmation
+
+    if [[ "$confirmation" != "DELETE" ]]; then
+        echo -e "${yellow}  • Deletion cancelled${nc}"
+        echo ""
+        read -n 1 -s -r -p "   Press any key to back on menu"
+        m-trojan
+        exit 0
+    fi
 fi
 
 # Delete user from config
@@ -381,53 +397,56 @@ if delete_trojan_user "$user"; then
     # Restart Xray service
     echo -e "${yellow}Restarting Xray service...${nc}"
     if systemctl restart xray; then
-        echo -e "${green}✓ Xray service restarted successfully${nc}"
+        [[ "$is_interactive" == "true" ]] && echo -e "${green}✓ Xray service restarted successfully${nc}"
         
         # Wait a moment for service to stabilize
         sleep 2
         
         # Check if Xray is running
         if systemctl is-active --quiet xray; then
-            echo -e "${green}✓ Xray service is running properly${nc}"
+            [[ "$is_interactive" == "true" ]] && echo -e "${green}✓ Xray service is running properly${nc}"
             
             # Cleanup user files
             echo -e "${yellow}Cleaning up user files...${nc}"
             cleanup_user_files "$user"
             
             # Display success message
-            clear
-            echo -e "${red}=========================================${nc}"
-            echo -e "${blue}         DELETE TROJAN ACCOUNT         ${nc}"
-            echo -e "${red}=========================================${nc}"
-            echo -e "${green}  • ACCOUNT DELETED SUCCESSFULLY${nc}"
-            echo ""
-            echo -e "${blue}  • Details:${nc}"
-            echo -e "     Username    : $user"
-            echo -e "     Expired On  : $exp"
-            echo -e "     Remaining   : $((NUMBER_OF_CLIENTS - 1)) users"
-            echo ""
-            echo -e "${green}  • Cleanup completed:${nc}"
-            echo -e "     ✓ Removed from Xray config"
-            echo -e "     ✓ Service restarted and verified"
-            echo -e "     ✓ Client config files removed"
-            echo -e "     ✓ Log entries cleaned"
-            echo -e "${red}=========================================${nc}"
+            if [[ "$is_interactive" == "true" ]]; then
+                clear
+                echo -e "${red}=========================================${nc}"
+                echo -e "${blue}         DELETE TROJAN ACCOUNT         ${nc}"
+                echo -e "${red}=========================================${nc}"
+                echo -e "${green}  • ACCOUNT DELETED SUCCESSFULLY${nc}"
+                echo ""
+                echo -e "${blue}  • Details:${nc}"
+                echo -e "     Username    : $user"
+                echo -e "     Expired On  : $exp"
+                echo -e "     Remaining   : $((NUMBER_OF_CLIENTS - 1)) users"
+                echo ""
+                echo -e "${green}  • Cleanup completed:${nc}"
+                echo -e "     ✓ Removed from Xray config"
+                echo -e "     ✓ Service restarted and verified"
+                echo -e "     ✓ Client config files removed"
+                echo -e "     ✓ Log entries cleaned"
+                echo -e "${red}=========================================${nc}"
+            else
+                echo "Success: User '$user' deleted"
+            fi
         else
             echo -e "${red}  • Error: Xray service failed to start after deletion${nc}"
-            echo -e "${yellow}  • Please check system logs: journalctl -u xray${nc}"
-            echo -e "${red}=========================================${nc}"
+            exit 1
         fi
     else
         echo -e "${red}  • Error: Failed to restart Xray service${nc}"
-        echo -e "${yellow}  • Please check system logs${nc}"
-        echo -e "${red}=========================================${nc}"
+        exit 1
     fi
 else
     echo -e "${red}  • Error: Failed to delete user from config${nc}"
-    echo -e "${yellow}  • Config restored from backup${nc}"
-    echo -e "${red}=========================================${nc}"
+    exit 1
 fi
 
-echo ""
-read -n 1 -s -r -p "   Press any key to back on menu"
-m-trojan
+if [[ "$is_interactive" == "true" ]]; then
+    echo ""
+    read -n 1 -s -r -p "   Press any key to back on menu"
+    m-trojan
+fi
