@@ -1,6 +1,6 @@
 #!/bin/bash
 # =========================================
-# setup (FINAL REVISED VERSION)
+# setup (ULTRA-FIXED VERSION)
 # =========================================
 
 # Logging Global
@@ -17,9 +17,7 @@ if wget --spider -q "$REPO_BASE/master/setup.sh"; then BRANCH="master"; else BRA
 REPO="$REPO_BASE/$BRANCH"
 
 safe_install() {
-    local name=$1
-    local folder_path=$2
-    local script_name=$(basename "$folder_path")
+    local name=$1; local folder_path=$2; local script_name=$(basename "$folder_path")
     echo -e "${blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${nc}"
     echo -e "${yellow}  Installing $name...${nc}"
     echo -e "${blue}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${nc}"
@@ -31,7 +29,7 @@ safe_install() {
     else echo -e "$name: FAILED (Download Error)" >> "$INSTALL_STATUS"; fi
 }
 
-# Timezone
+# Pre-Install
 timedatectl set-timezone Asia/Jakarta
 apt update && apt install -y curl wget jq net-tools psmisc
 
@@ -42,8 +40,7 @@ read -rp "Enter Server Code: " kode
 read -rp "Enter Cloudflare Token: " cf_token
 echo "$cf_token" > /etc/cf_token && chmod 600 /etc/cf_token
 
-# --- UNIFIED DOMAIN MAPPING ---
-# Format: service-code.domain
+# --- DOMAIN MAPPING (CLEAN) ---
 echo "${kode}.${basedom}" > /usr/local/etc/xray/domain
 echo "ws-${kode}.${basedom}" > /usr/local/etc/xray/domain_ssh_ws
 echo "vm-${kode}.${basedom}" > /usr/local/etc/xray/domain_vmess
@@ -54,11 +51,8 @@ echo "ovpn-${kode}.${basedom}" > /usr/local/etc/xray/domain_ovpn
 echo "ns-${kode}.${basedom}" > /usr/local/etc/xray/domain_slowdns
 echo "zi-${kode}.${basedom}" > /usr/local/etc/xray/domain_zivpn
 
-# Alias untuk gRPC agar tidak pakai domain terpisah
-cp /usr/local/etc/xray/domain_vmess /usr/local/etc/xray/domain_vmgr
-cp /usr/local/etc/xray/domain_vless /usr/local/etc/xray/domain_vlgr
-cp /usr/local/etc/xray/domain_trojan /usr/local/etc/xray/domain_trgr
-cp /usr/local/etc/xray/domain_ss /usr/local/etc/xray/domain_ssgr
+# Backup domains for scripts that search for it
+cp /usr/local/etc/xray/domain_ssh /usr/local/etc/xray/domain_ssh_ws 2>/dev/null || echo "${kode}.${basedom}" > /usr/local/etc/xray/domain_ssh
 
 # --- DNS AUTOMATION ---
 wget -O cf.sh "$REPO/ssh/cf.sh" && chmod +x cf.sh
@@ -74,15 +68,13 @@ safe_install "SlowDNS" "slowdns/slowdns.sh"
 safe_install "WireGuard" "wireguard/wg.sh"
 safe_install "ZIVPN" "zivpn/ins-zivpn.sh"
 
-# --- FINALIZING LOG ---
+# --- FINAL LOG ---
 cat > /root/log-install.txt <<EOF
    >>> Service & Port
    - OpenSSH                  : 22, 2222
    - Dropbear                 : 109, 110
    - SSH Websocket            : 80, 1445
    - SSH SSL Websocket        : 444, 1444
-   - Stunnel4                 : 222, 333, 777
-   - Badvpn                   : 7100-7900
    - OpenVPN                  : 443, 1195, 51825
    - WireGuard                : 51820
    - SlowDNS                  : 53, 5300

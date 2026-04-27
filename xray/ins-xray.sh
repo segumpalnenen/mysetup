@@ -37,7 +37,8 @@ rm -rf /var/log/xray
 rm -f /etc/systemd/system/xray.service
 rm -f /etc/nginx/conf.d/xray.conf
 rm -f /etc/nginx/conf.d/vps.conf
-mkdir -p /usr/local/etc/xray
+mkdir -p /usr/local/etc/xray /var/log/xray
+echo '{"inbounds": []}' > /usr/local/etc/xray/config.json
 echo "$domain" > /usr/local/etc/xray/domain
 
 # ---------- Dependencies ----------

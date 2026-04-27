@@ -1,6 +1,6 @@
 #!/bin/bash
 # =========================================
-# AUTO CREATE DNS RECORDS CLOUDFLARE (REFINED)
+# AUTO CREATE DNS RECORDS CLOUDFLARE (ULTRA-FIX)
 # =========================================
 set -euo pipefail
 red='\e[1;31m'; green='\e[0;32m'; blue='\e[1;34m'; nc='\e[0m'
@@ -29,16 +29,22 @@ create_or_update() {
 }
 
 # --- UNIFIED DNS MAPPING ---
-create_or_update "${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"           # Main/SSH
-create_or_update "ws-${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"        # SSH WS
-create_or_update "vm-${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"        # Vmess
-create_or_update "vl-${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"        # Vless
-create_or_update "tr-${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"        # Trojan
-create_or_update "ss-${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"        # Shadowsocks
-create_or_update "ovpn-${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"      # OpenVPN
-create_or_update "zi-${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"        # ZIVPN
+MAIN_HOST="${SERVER_CODE}.${BASE_DOMAIN}"
+create_or_update "$MAIN_HOST" "$IP" "A"
+create_or_update "ws-${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"
+create_or_update "vm-${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"
+create_or_update "vl-${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"
+create_or_update "tr-${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"
+create_or_update "ss-${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"
+create_or_update "ovpn-${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"
+create_or_update "zi-${SERVER_CODE}.${BASE_DOMAIN}" "$IP" "A"
 
-# NS RECORD FIX: ns-sgp1.domain.com points to sgp1.domain.com
-create_or_update "ns-${SERVER_CODE}.${BASE_DOMAIN}" "${SERVER_CODE}.${BASE_DOMAIN}" "NS"
+# SLOWDNS NS RECORD FIX
+NS_HOST="ns-${SERVER_CODE}.${BASE_DOMAIN}"
+create_or_update "$NS_HOST" "$MAIN_HOST" "NS"
 
-echo -e "${green}DNS records for all protocols created successfully!${nc}"
+# Save references
+echo "$NS_HOST" > /root/nsdomain
+echo "$NS_HOST" > /usr/local/etc/xray/domain_slowdns
+
+echo -e "${green}DNS records (including NS: $NS_HOST) created successfully!${nc}"
