@@ -361,7 +361,34 @@ systemctl daemon-reload
 systemctl enable xray
 systemctl start xray
 
-# nginx
+# Nginx public configuration for OpenVPN & Redirects
+cat > /etc/nginx/conf.d/vps.conf <<'EOF'
+server {
+    listen 80;
+    listen [::]:80;
+    server_name _;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    location /openvpn {
+        alias /usr/share/nginx/html/openvpn;
+        autoindex on;
+    }
+
+    # Redirect other port 80 traffic to 8080 (internal Xray WS)
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+}
+EOF
+
+# Nginx internal configuration for Xray
 cat > /etc/nginx/conf.d/xray.conf <<'EOF'
 server {
     listen 127.0.0.1:8080;
