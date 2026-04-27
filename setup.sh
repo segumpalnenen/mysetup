@@ -81,11 +81,25 @@ cat > /root/log-install.txt <<EOF
    - Dropbear                 : 109, 110
    - SSH Websocket            : 80, 1445
    - SSH SSL Websocket        : 444, 1444
+   - Stunnel4                 : 222, 333, 777
+   - Badvpn                   : 7100-7900
    - OpenVPN                  : 443, 1195, 51825
    - WireGuard                : 51820
    - SlowDNS                  : 53, 5300
    - ZIVPN UDP                : 5667, 10000-30000
    - Nginx                    : 80, 8080
+   - Vmess WS TLS             : 443
+   - Vless WS TLS             : 443
+   - Trojan WS TLS            : 443
+   - Shadowsocks WS TLS       : 443
+   - Vmess WS none TLS        : 80
+   - Vless WS none TLS        : 80
+   - Trojan WS none TLS       : 80
+   - Shadowsocks WS none TLS  : 80
+   - Vmess gRPC               : 443
+   - Vless gRPC               : 443
+   - Trojan gRPC              : 443
+   - Shadowsocks gRPC         : 443
 EOF
 
 apt install -y netfilter-persistent iptables-persistent
